@@ -7,6 +7,7 @@ Use this checklist before publishing a SoulBind release.
 - Run `cargo fmt --manifest-path src-tauri/Cargo.toml --check`.
 - Run `cargo check --manifest-path src-tauri/Cargo.toml`.
 - Run `cargo test --manifest-path src-tauri/Cargo.toml`.
+- Run `cargo audit --file src-tauri/Cargo.lock`.
 - Run `node --check src/main.js`.
 - Confirm there are no Rust warnings.
 
@@ -38,4 +39,3 @@ Use this checklist before publishing a SoulBind release.
 - Confirm bundle identifier and version.
 - Confirm final app icon renders at small and large sizes.
 - Attach platform-specific caveats to release notes.
-

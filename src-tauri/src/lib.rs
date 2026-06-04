@@ -10,8 +10,9 @@ mod storage;
 mod tray;
 
 use commands::{
-    add_binding, delete_binding, duplicate_binding, list_bindings, play_binding, set_all_enabled,
-    set_binding_enabled, stop_all, update_binding,
+    add_binding, delete_binding, duplicate_binding, get_settings, list_bindings,
+    list_output_devices, play_binding, set_all_enabled, set_binding_enabled, set_output_device,
+    stop_all, update_binding,
 };
 use shortcuts_tauri::rebuild_shortcuts;
 use state::AppState;
@@ -51,7 +52,10 @@ pub fn run() {
             set_binding_enabled,
             set_all_enabled,
             play_binding,
-            stop_all
+            stop_all,
+            list_output_devices,
+            get_settings,
+            set_output_device
         ])
         .run(tauri::generate_context!())
         .expect("error while running SoulBind");

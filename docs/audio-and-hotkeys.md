@@ -10,6 +10,8 @@ Reasons:
 - It handles common playback needs without building directly against platform audio APIs.
 - Its mixer model allows multiple sounds to play at the same time, which is required for soundboard behavior.
 
+SoulBind supports selecting the audio output device. This is required for streaming and voice chat workflows where soundboard audio must be routed to a virtual cable, loopback, or mixer device instead of ordinary speakers.
+
 ## Playback Behavior
 
 Implemented behavior:

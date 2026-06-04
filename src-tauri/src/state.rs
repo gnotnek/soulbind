@@ -5,11 +5,12 @@ use std::sync::Mutex;
 use crate::audio::{AudioEngine, AudioHandle, NullAudioEngine};
 use crate::bindings::BindingCollection;
 use crate::error::{AppError, AppResult};
-use crate::models::{BindingInput, SoundBinding};
+use crate::models::{AppSettings, AudioOutputDevice, BindingInput, SoundBinding};
 use crate::storage;
 
 pub struct AppState {
     bindings: Mutex<BindingCollection>,
+    settings: Mutex<AppSettings>,
     shortcut_index: Mutex<HashMap<u32, String>>,
     audio: Box<dyn AudioHandle>,
     config_path: PathBuf,
@@ -17,26 +18,29 @@ pub struct AppState {
 
 impl AppState {
     pub fn load() -> Self {
-        let (config_path, bindings) = storage::load_bindings().unwrap_or_else(|_| {
+        let (config_path, config) = storage::load_config().unwrap_or_else(|_| {
             let config_path = storage::default_config_path();
-            (config_path, Vec::new())
+            (config_path, storage::AppConfig::default())
         });
 
-        let audio: Box<dyn AudioHandle> = match AudioEngine::new() {
-            Ok(engine) => Box::new(engine),
-            Err(_) => Box::new(NullAudioEngine),
-        };
+        let audio: Box<dyn AudioHandle> =
+            match AudioEngine::new(config.settings.audio.output_device_name.clone()) {
+                Ok(engine) => Box::new(engine),
+                Err(_) => Box::new(NullAudioEngine),
+            };
 
-        Self::new(config_path, bindings, audio)
+        Self::new(config_path, config.bindings, config.settings, audio)
     }
 
     pub fn new(
         config_path: PathBuf,
         bindings: Vec<SoundBinding>,
+        settings: AppSettings,
         audio: Box<dyn AudioHandle>,
     ) -> Self {
         Self {
             bindings: Mutex::new(BindingCollection::new(bindings)),
+            settings: Mutex::new(settings),
             shortcut_index: Mutex::new(HashMap::new()),
             audio,
             config_path,
@@ -98,6 +102,29 @@ impl AppState {
         self.audio.stop_all().map_err(AppError::Audio)
     }
 
+    pub fn output_devices(&self) -> AppResult<Vec<AudioOutputDevice>> {
+        self.audio.output_devices().map_err(AppError::Audio)
+    }
+
+    pub fn settings(&self) -> AppResult<AppSettings> {
+        Ok(self.lock_settings()?.clone())
+    }
+
+    pub fn set_output_device(&self, device_name: Option<String>) -> AppResult<AppSettings> {
+        let device_name = device_name.filter(|name| !name.trim().is_empty());
+        self.audio
+            .set_output_device(device_name.clone())
+            .map_err(AppError::Audio)?;
+
+        {
+            let mut settings = self.lock_settings()?;
+            settings.audio.output_device_name = device_name;
+        }
+
+        self.save()?;
+        self.settings()
+    }
+
     pub fn shortcut_binding_id(&self, shortcut_id: u32) -> Option<String> {
         self.shortcut_index
             .lock()
@@ -123,13 +150,26 @@ impl AppState {
 
     pub fn save(&self) -> AppResult<()> {
         let bindings = self.lock_bindings()?;
-        storage::save_bindings(&self.config_path, bindings.as_slice())
+        let settings = self.lock_settings()?;
+        storage::save_config(
+            &self.config_path,
+            &storage::AppConfig {
+                settings: settings.clone(),
+                bindings: bindings.as_slice().to_vec(),
+            },
+        )
     }
 
     fn lock_bindings(&self) -> AppResult<std::sync::MutexGuard<'_, BindingCollection>> {
         self.bindings
             .lock()
             .map_err(|_| AppError::State("Binding state is unavailable.".to_string()))
+    }
+
+    fn lock_settings(&self) -> AppResult<std::sync::MutexGuard<'_, AppSettings>> {
+        self.settings
+            .lock()
+            .map_err(|_| AppError::State("Settings state is unavailable.".to_string()))
     }
 }
 
@@ -145,6 +185,7 @@ mod tests {
     struct FakeAudio {
         played: Arc<Mutex<Vec<(PathBuf, f32, PlaybackMode)>>>,
         stopped: Arc<Mutex<usize>>,
+        selected_output: Arc<Mutex<Option<String>>>,
     }
 
     impl AudioHandle for FakeAudio {
@@ -164,6 +205,25 @@ mod tests {
         fn stop_all(&self) -> Result<(), String> {
             *self.stopped.lock().unwrap() += 1;
             Ok(())
+        }
+
+        fn output_devices(&self) -> Result<Vec<AudioOutputDevice>, String> {
+            let selected = self.selected_output.lock().unwrap().clone();
+            Ok(vec![AudioOutputDevice {
+                id: "Virtual Cable".to_string(),
+                name: "Virtual Cable".to_string(),
+                is_default: false,
+                is_selected: selected.as_deref() == Some("Virtual Cable"),
+            }])
+        }
+
+        fn set_output_device(&self, device_name: Option<String>) -> Result<(), String> {
+            *self.selected_output.lock().unwrap() = device_name;
+            Ok(())
+        }
+
+        fn selected_output_device_name(&self) -> Option<String> {
+            self.selected_output.lock().unwrap().clone()
         }
     }
 
@@ -186,7 +246,12 @@ mod tests {
 
         let fake = FakeAudio::default();
         let played = fake.played.clone();
-        let state = AppState::new(dir.join("bindings.json"), Vec::new(), Box::new(fake));
+        let state = AppState::new(
+            dir.join("bindings.json"),
+            Vec::new(),
+            AppSettings::default(),
+            Box::new(fake),
+        );
 
         state
             .add_binding("a".to_string(), input(audio_path.clone()))
@@ -207,11 +272,38 @@ mod tests {
         let state = AppState::new(
             PathBuf::from("/tmp/no-write.json"),
             Vec::new(),
+            AppSettings::default(),
             Box::new(fake),
         );
 
         state.stop_all().unwrap();
 
         assert_eq!(*stopped.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn set_output_device_updates_and_persists_settings() {
+        let dir = std::env::temp_dir().join(format!(
+            "soulbind-output-settings-test-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+
+        let fake = FakeAudio::default();
+        let state = AppState::new(
+            dir.join("bindings.json"),
+            Vec::new(),
+            AppSettings::default(),
+            Box::new(fake),
+        );
+
+        let settings = state
+            .set_output_device(Some("Virtual Cable".to_string()))
+            .unwrap();
+
+        assert_eq!(
+            settings.audio.output_device_name.as_deref(),
+            Some("Virtual Cable")
+        );
     }
 }

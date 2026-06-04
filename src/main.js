@@ -20,6 +20,9 @@ const els = {
   volume: document.querySelector("#volume"),
   enableAll: document.querySelector("#enable-all"),
   browseFile: document.querySelector("#browse-file"),
+  outputDevice: document.querySelector("#output-device"),
+  refreshDevices: document.querySelector("#refresh-devices"),
+  audioRouteStatus: document.querySelector("#audio-route-status"),
   title: document.querySelector("#editor-title"),
   add: document.querySelector("#add-sound"),
   clear: document.querySelector("#clear-form"),
@@ -47,6 +50,39 @@ async function call(command, args = {}) {
     showToast(String(error));
     return null;
   }
+}
+
+async function loadOutputDevices() {
+  if (demoMode) {
+    renderOutputDevices([
+      { id: "", name: "System default", is_default: true, is_selected: false },
+      { id: "BlackHole 2ch", name: "BlackHole 2ch", is_default: false, is_selected: true },
+      { id: "MacBook Pro Speakers", name: "MacBook Pro Speakers", is_default: false, is_selected: false },
+    ]);
+    return;
+  }
+
+  const devices = await call("list_output_devices");
+  if (devices) {
+    renderOutputDevices(devices);
+  }
+}
+
+function renderOutputDevices(devices) {
+  els.outputDevice.innerHTML = "";
+
+  for (const device of devices) {
+    const option = document.createElement("option");
+    option.value = device.id;
+    option.textContent = device.is_default && device.id ? `${device.name} (system default)` : device.name;
+    option.selected = device.is_selected;
+    els.outputDevice.append(option);
+  }
+
+  const selected = devices.find((device) => device.is_selected);
+  els.audioRouteStatus.textContent = selected?.id
+    ? "Route this device into your stream or call app."
+    : "Uses your system output. Calls may not hear it unless they capture desktop audio.";
 }
 
 function currentMode() {
@@ -218,6 +254,22 @@ els.stopAll.addEventListener("click", async () => {
   await call("stop_all");
 });
 
+els.refreshDevices.addEventListener("click", loadOutputDevices);
+
+els.outputDevice.addEventListener("change", async (event) => {
+  if (demoMode) {
+    showToast("Audio route changed in preview.");
+    return;
+  }
+
+  const selected = event.target.value || null;
+  const settings = await call("set_output_device", { deviceName: selected });
+  if (settings) {
+    await loadOutputDevices();
+    showToast("Audio route saved.");
+  }
+});
+
 els.enableAll.addEventListener("change", async (event) => {
   const result = await call("set_all_enabled", { enabled: event.target.checked });
   if (result) {
@@ -304,3 +356,4 @@ els.shortcut.addEventListener("keydown", (event) => {
 
 resetForm();
 refresh();
+loadOutputDevices();

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{AppError, AppResult};
-use crate::models::SoundBinding;
+use crate::models::{AppSettings, SoundBinding};
 
 const CONFIG_FILE: &str = "bindings.json";
 const CONFIG_VERSION: u32 = 1;
@@ -13,7 +13,15 @@ const CONFIG_VERSION: u32 = 1;
 #[derive(Debug, Serialize, Deserialize)]
 struct ConfigFile {
     version: u32,
+    #[serde(default)]
+    settings: AppSettings,
     bindings: Vec<SoundBinding>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AppConfig {
+    pub settings: AppSettings,
+    pub bindings: Vec<SoundBinding>,
 }
 
 pub fn default_config_path() -> PathBuf {
@@ -23,29 +31,45 @@ pub fn default_config_path() -> PathBuf {
         .join(CONFIG_FILE)
 }
 
-pub fn load_bindings() -> AppResult<(PathBuf, Vec<SoundBinding>)> {
-    let path = default_config_path();
-    load_bindings_from_path(path)
+#[cfg(test)]
+pub fn load_bindings_from_path(path: PathBuf) -> AppResult<(PathBuf, Vec<SoundBinding>)> {
+    load_config_from_path(path).map(|(path, config)| (path, config.bindings))
 }
 
-pub fn load_bindings_from_path(path: PathBuf) -> AppResult<(PathBuf, Vec<SoundBinding>)> {
+pub fn load_config() -> AppResult<(PathBuf, AppConfig)> {
+    let path = default_config_path();
+    load_config_from_path(path)
+}
+
+pub fn load_config_from_path(path: PathBuf) -> AppResult<(PathBuf, AppConfig)> {
     if !path.exists() {
-        return Ok((path, Vec::new()));
+        return Ok((path, AppConfig::default()));
     }
 
     let contents = fs::read_to_string(&path).map_err(|error| {
         AppError::Storage(format!("Could not read config {}: {error}", path.display()))
     })?;
-    let bindings = parse_config(&contents).map_err(|error| {
+    let config = parse_config(&contents).map_err(|error| {
         AppError::Storage(format!(
             "Could not parse config {}: {error}",
             path.display()
         ))
     })?;
-    Ok((path, bindings))
+    Ok((path, config))
 }
 
+#[cfg(test)]
 pub fn save_bindings(path: &Path, bindings: &[SoundBinding]) -> AppResult<()> {
+    save_config(
+        path,
+        &AppConfig {
+            settings: AppSettings::default(),
+            bindings: bindings.to_vec(),
+        },
+    )
+}
+
+pub fn save_config(path: &Path, config: &AppConfig) -> AppResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             AppError::Storage(format!("Could not create config directory: {error}"))
@@ -54,7 +78,8 @@ pub fn save_bindings(path: &Path, bindings: &[SoundBinding]) -> AppResult<()> {
 
     let config = ConfigFile {
         version: CONFIG_VERSION,
-        bindings: bindings.to_vec(),
+        settings: config.settings.clone(),
+        bindings: config.bindings.clone(),
     };
     let contents = serde_json::to_string_pretty(&config)
         .map_err(|error| AppError::Storage(format!("Could not serialize config: {error}")))?;
@@ -66,13 +91,19 @@ pub fn save_bindings(path: &Path, bindings: &[SoundBinding]) -> AppResult<()> {
     })
 }
 
-fn parse_config(contents: &str) -> serde_json::Result<Vec<SoundBinding>> {
+fn parse_config(contents: &str) -> serde_json::Result<AppConfig> {
     let value = serde_json::from_str::<Value>(contents)?;
     if value.is_array() {
-        return serde_json::from_value(value);
+        return serde_json::from_value(value).map(|bindings| AppConfig {
+            settings: AppSettings::default(),
+            bindings,
+        });
     }
 
-    serde_json::from_value::<ConfigFile>(value).map(|config| config.bindings)
+    serde_json::from_value::<ConfigFile>(value).map(|config| AppConfig {
+        settings: config.settings,
+        bindings: config.bindings,
+    })
 }
 
 #[cfg(test)]
@@ -106,6 +137,35 @@ mod tests {
 
         assert_eq!(bindings.len(), 1);
         assert_eq!(bindings[0].id, "a");
+    }
+
+    #[test]
+    fn saves_and_loads_audio_settings() {
+        let dir = std::env::temp_dir().join(format!(
+            "soulbind-storage-settings-test-{}",
+            std::process::id()
+        ));
+        let path = dir.join("bindings.json");
+        save_config(
+            &path,
+            &AppConfig {
+                settings: AppSettings {
+                    audio: crate::models::AudioSettings {
+                        output_device_name: Some("Virtual Cable".to_string()),
+                    },
+                },
+                bindings: vec![binding("a")],
+            },
+        )
+        .unwrap();
+
+        let (_, config) = load_config_from_path(path).unwrap();
+
+        assert_eq!(
+            config.settings.audio.output_device_name.as_deref(),
+            Some("Virtual Cable")
+        );
+        assert_eq!(config.bindings.len(), 1);
     }
 
     #[test]

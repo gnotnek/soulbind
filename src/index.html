@@ -32,11 +32,21 @@
               <span class="icon icon-search" aria-hidden="true"></span>
               <input id="search" type="search" placeholder="Search bindings" autocomplete="off" />
             </label>
-            <label class="toggle-control" title="Enable or disable all bindings">
-              <input id="enable-all" type="checkbox" />
-              <span>Enabled</span>
-            </label>
+            <div class="toolbar-actions">
+              <div class="route-control">
+                <label for="output-device">Route</label>
+                <select id="output-device" name="outputDevice"></select>
+                <button class="icon-button subtle" id="refresh-devices" type="button" aria-label="Refresh audio devices" title="Refresh audio devices">
+                  <span class="icon icon-refresh" aria-hidden="true"></span>
+                </button>
+              </div>
+              <label class="toggle-control" title="Enable or disable all bindings">
+                <input id="enable-all" type="checkbox" />
+                <span>Enabled</span>
+              </label>
+            </div>
           </div>
+          <p id="audio-route-status" class="route-status"></p>
           <div id="binding-list" class="binding-list"></div>
         </section>
 

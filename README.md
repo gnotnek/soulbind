@@ -42,6 +42,7 @@ See [docs/framework-decision.md](docs/framework-decision.md) for the full compar
 - [Platform Notes](docs/platform-notes.md)
 - [Development Plan](docs/development-plan.md)
 - [Release Checklist](docs/release-checklist.md)
+- [Streaming And Call Routing](docs/streaming-call-routing.md)
 
 ## Development Setup
 

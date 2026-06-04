@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SoulBind</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./main.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="brand-lockup">
+          <h1>SoulBind</h1>
+          <p id="platform-status">Global sound shortcuts</p>
+        </div>
+        <div class="top-actions">
+          <button class="icon-button danger" id="stop-all" type="button" aria-label="Stop all sounds" title="Stop all sounds">
+            <span class="icon icon-stop" aria-hidden="true"></span>
+          </button>
+          <button class="primary-button" id="add-sound" type="button">
+            <span class="icon icon-plus" aria-hidden="true"></span>
+            Add Sound
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="binding-panel" aria-label="Sound bindings">
+          <div class="toolbar">
+            <label class="search-field">
+              <span class="icon icon-search" aria-hidden="true"></span>
+              <input id="search" type="search" placeholder="Search bindings" autocomplete="off" />
+            </label>
+            <label class="toggle-control" title="Enable or disable all bindings">
+              <input id="enable-all" type="checkbox" />
+              <span>Enabled</span>
+            </label>
+          </div>
+          <div id="binding-list" class="binding-list"></div>
+        </section>
+
+        <aside class="editor-panel" aria-label="Binding editor">
+          <form id="binding-form">
+            <input id="binding-id" type="hidden" />
+            <div class="editor-header">
+              <h2 id="editor-title">New Binding</h2>
+              <button class="icon-button subtle" id="clear-form" type="button" aria-label="Clear form" title="Clear form">
+                <span class="icon icon-close" aria-hidden="true"></span>
+              </button>
+            </div>
+
+            <label class="field">
+              <span>Name</span>
+              <input id="name" name="name" type="text" placeholder="Air horn" required />
+            </label>
+
+            <label class="field">
+              <span>Audio file path</span>
+              <div class="path-row">
+                <input id="file-path" name="filePath" type="text" placeholder="/path/to/sound.mp3" required />
+                <button class="icon-button" id="browse-file" type="button" aria-label="Choose audio file" title="Choose audio file">
+                  <span class="icon icon-folder" aria-hidden="true"></span>
+                </button>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>Shortcut</span>
+              <input id="shortcut" name="shortcut" type="text" placeholder="CmdOrControl+Shift+1" required />
+            </label>
+
+            <label class="field">
+              <span>Playback mode</span>
+              <div class="segmented-control" role="radiogroup" aria-label="Playback mode">
+                <label>
+                  <input type="radio" name="mode" value="layer" checked />
+                  <span>Layer</span>
+                </label>
+                <label>
+                  <input type="radio" name="mode" value="restart" />
+                  <span>Restart</span>
+                </label>
+                <label>
+                  <input type="radio" name="mode" value="single" />
+                  <span>Single</span>
+                </label>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>Volume</span>
+              <input id="volume" name="volume" type="range" min="0" max="2" step="0.05" value="1" />
+            </label>
+
+            <div class="form-actions">
+              <button class="secondary-button" id="delete-binding" type="button">
+                Delete
+              </button>
+              <button class="primary-button" type="submit">
+                Save
+              </button>
+            </div>
+          </form>
+        </aside>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

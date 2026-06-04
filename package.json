@@ -1,0 +1,12 @@
+{
+  "name": "soulbind",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "tauri": "cargo tauri",
+    "dev": "cargo tauri dev",
+    "build": "cargo tauri build"
+  }
+}
+

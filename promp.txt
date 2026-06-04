@@ -1,0 +1,9 @@
+i want to build cross platform desktop application work on linux, windows, and macos. the application can bind a sound into a keyboard shortcut. it should work to replace the soundboard application which i don't know if they will work on keyboard shortcuts. i want to build it using rust, but i don't know which framework to use. i wanted you to deep dive to it and choose the best framework for the job. i want the app to be as efficient as possible, because of that i choose rust. the application should be called SoulBind. it also should have easy to navigate ux and beautiful design. i have written the design system and color palette already bellow. also document all the technical details of the app at docs/ folder with markdown files and write a README.md file.
+
+tech stack:
+- rust
+
+design system:
+- color palette: 000000, FFFFFC, BEB7A4, FF7F11, FF3F00
+- material icons
+- material design

@@ -1,0 +1,1 @@
+{"main-capability":{"identifier":"main-capability","description":"Default permissions for the SoulBind main window","local":true,"windows":["main"],"permissions":["core:default","global-shortcut:allow-is-registered","global-shortcut:allow-register","global-shortcut:allow-unregister","global-shortcut:allow-unregister-all","dialog:allow-open"]}}

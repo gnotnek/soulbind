@@ -104,7 +104,7 @@ jobs:
           import hashlib
           import pathlib
 
-          bundle_dir = pathlib.Path("src-tauri/target/release/bundle")
+          target_dir = pathlib.Path("src-tauri/target")
           suffixes = {
               ".AppImage",
               ".deb",
@@ -115,9 +115,12 @@ jobs:
           }
           files = [
               path
+              for bundle_dir in target_dir.glob("**/release/bundle")
               for path in bundle_dir.rglob("*")
               if path.is_file() and path.suffix in suffixes
           ]
+          if not files:
+              raise SystemExit("No release bundle files found")
           with open("SHA256SUMS-${{ matrix.name }}.txt", "w", encoding="utf-8") as out:
               for path in sorted(files):
                   digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -132,9 +135,15 @@ jobs:
           overwrite_files: true
           files: |
             src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/*/release/bundle/**/*.AppImage
             src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/*/release/bundle/**/*.deb
             src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/*/release/bundle/**/*.dmg
             src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/*/release/bundle/**/*.exe
             src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/*/release/bundle/**/*.msi
             src-tauri/target/release/bundle/**/*.rpm
+            src-tauri/target/*/release/bundle/**/*.rpm
             SHA256SUMS-${{ matrix.name }}.txt

@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use crate::audio::{AudioEngine, AudioHandle, NullAudioEngine};
 use crate::bindings::BindingCollection;
 use crate::error::{AppError, AppResult};
-use crate::models::{AppSettings, AudioOutputDevice, BindingInput, SoundBinding};
+use crate::models::{AppSettings, AudioInputDevice, AudioOutputDevice, BindingInput, SoundBinding};
 use crate::storage;
 
 pub struct AppState {
@@ -18,16 +18,22 @@ pub struct AppState {
 
 impl AppState {
     pub fn load() -> Self {
-        let (config_path, config) = storage::load_config().unwrap_or_else(|_| {
+        let (config_path, mut config) = storage::load_config().unwrap_or_else(|_| {
             let config_path = storage::default_config_path();
             (config_path, storage::AppConfig::default())
         });
 
-        let audio: Box<dyn AudioHandle> =
-            match AudioEngine::new(config.settings.audio.output_device_name.clone()) {
-                Ok(engine) => Box::new(engine),
-                Err(_) => Box::new(NullAudioEngine),
-            };
+        let audio: Box<dyn AudioHandle> = match AudioEngine::new(
+            config.settings.audio.output_device_name.clone(),
+            config.settings.audio.input_device_name.clone(),
+            config.settings.audio.orchestrator_enabled,
+        ) {
+            Ok(engine) => {
+                config.settings.audio.orchestrator_enabled = engine.orchestrator_enabled();
+                Box::new(engine)
+            }
+            Err(_) => Box::new(NullAudioEngine),
+        };
 
         Self::new(config_path, config.bindings, config.settings, audio)
     }
@@ -106,6 +112,10 @@ impl AppState {
         self.audio.output_devices().map_err(AppError::Audio)
     }
 
+    pub fn input_devices(&self) -> AppResult<Vec<AudioInputDevice>> {
+        self.audio.input_devices().map_err(AppError::Audio)
+    }
+
     pub fn settings(&self) -> AppResult<AppSettings> {
         Ok(self.lock_settings()?.clone())
     }
@@ -119,6 +129,35 @@ impl AppState {
         {
             let mut settings = self.lock_settings()?;
             settings.audio.output_device_name = device_name;
+        }
+
+        self.save()?;
+        self.settings()
+    }
+
+    pub fn set_input_device(&self, device_name: Option<String>) -> AppResult<AppSettings> {
+        let device_name = device_name.filter(|name| !name.trim().is_empty());
+        self.audio
+            .set_input_device(device_name.clone())
+            .map_err(AppError::Audio)?;
+
+        {
+            let mut settings = self.lock_settings()?;
+            settings.audio.input_device_name = device_name;
+        }
+
+        self.save()?;
+        self.settings()
+    }
+
+    pub fn set_orchestrator_enabled(&self, enabled: bool) -> AppResult<AppSettings> {
+        self.audio
+            .set_orchestrator_enabled(enabled)
+            .map_err(AppError::Audio)?;
+
+        {
+            let mut settings = self.lock_settings()?;
+            settings.audio.orchestrator_enabled = enabled;
         }
 
         self.save()?;
@@ -217,13 +256,38 @@ mod tests {
             }])
         }
 
+        fn input_devices(&self) -> Result<Vec<AudioInputDevice>, String> {
+            Ok(vec![AudioInputDevice {
+                id: "Mic".to_string(),
+                name: "Mic".to_string(),
+                is_default: false,
+                is_selected: false,
+            }])
+        }
+
         fn set_output_device(&self, device_name: Option<String>) -> Result<(), String> {
             *self.selected_output.lock().unwrap() = device_name;
             Ok(())
         }
 
+        fn set_input_device(&self, _device_name: Option<String>) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn set_orchestrator_enabled(&self, _enabled: bool) -> Result<(), String> {
+            Ok(())
+        }
+
         fn selected_output_device_name(&self) -> Option<String> {
             self.selected_output.lock().unwrap().clone()
+        }
+
+        fn selected_input_device_name(&self) -> Option<String> {
+            None
+        }
+
+        fn orchestrator_enabled(&self) -> bool {
+            false
         }
     }
 
@@ -305,5 +369,45 @@ mod tests {
             settings.audio.output_device_name.as_deref(),
             Some("Virtual Cable")
         );
+    }
+
+    #[test]
+    fn set_input_device_updates_and_persists_settings() {
+        let dir = std::env::temp_dir().join(format!(
+            "soulbind-input-settings-test-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+
+        let state = AppState::new(
+            dir.join("bindings.json"),
+            Vec::new(),
+            AppSettings::default(),
+            Box::new(FakeAudio::default()),
+        );
+
+        let settings = state.set_input_device(Some("Mic".to_string())).unwrap();
+
+        assert_eq!(settings.audio.input_device_name.as_deref(), Some("Mic"));
+    }
+
+    #[test]
+    fn set_orchestrator_enabled_updates_and_persists_settings() {
+        let dir = std::env::temp_dir().join(format!(
+            "soulbind-orchestrator-settings-test-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+
+        let state = AppState::new(
+            dir.join("bindings.json"),
+            Vec::new(),
+            AppSettings::default(),
+            Box::new(FakeAudio::default()),
+        );
+
+        let settings = state.set_orchestrator_enabled(true).unwrap();
+
+        assert!(settings.audio.orchestrator_enabled);
     }
 }

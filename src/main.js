@@ -20,7 +20,9 @@ const els = {
   volume: document.querySelector("#volume"),
   enableAll: document.querySelector("#enable-all"),
   browseFile: document.querySelector("#browse-file"),
+  inputDevice: document.querySelector("#input-device"),
   outputDevice: document.querySelector("#output-device"),
+  orchestratorEnabled: document.querySelector("#orchestrator-enabled"),
   refreshDevices: document.querySelector("#refresh-devices"),
   audioRouteStatus: document.querySelector("#audio-route-status"),
   title: document.querySelector("#editor-title"),
@@ -52,37 +54,75 @@ async function call(command, args = {}) {
   }
 }
 
-async function loadOutputDevices() {
+async function loadAudioDevices() {
   if (demoMode) {
+    renderInputDevices([
+      { id: "", name: "System default", is_default: true, is_selected: false },
+      { id: "Shure MV7", name: "Shure MV7", is_default: false, is_selected: true },
+      { id: "MacBook Pro Microphone", name: "MacBook Pro Microphone", is_default: false, is_selected: false },
+    ]);
     renderOutputDevices([
       { id: "", name: "System default", is_default: true, is_selected: false },
       { id: "BlackHole 2ch", name: "BlackHole 2ch", is_default: false, is_selected: true },
       { id: "MacBook Pro Speakers", name: "MacBook Pro Speakers", is_default: false, is_selected: false },
     ]);
+    els.orchestratorEnabled.checked = true;
+    updateRouteStatus();
     return;
   }
 
-  const devices = await call("list_output_devices");
-  if (devices) {
-    renderOutputDevices(devices);
+  const [inputDevices, outputDevices, settings] = await Promise.all([
+    call("list_input_devices"),
+    call("list_output_devices"),
+    call("get_settings"),
+  ]);
+  if (inputDevices) {
+    renderInputDevices(inputDevices);
   }
+  if (outputDevices) {
+    renderOutputDevices(outputDevices);
+  }
+  if (settings) {
+    els.orchestratorEnabled.checked = Boolean(settings.audio?.orchestrator_enabled);
+  }
+  updateRouteStatus();
+}
+
+function renderInputDevices(devices) {
+  renderDeviceOptions(els.inputDevice, devices);
 }
 
 function renderOutputDevices(devices) {
-  els.outputDevice.innerHTML = "";
+  renderDeviceOptions(els.outputDevice, devices);
+}
+
+function renderDeviceOptions(select, devices) {
+  select.innerHTML = "";
 
   for (const device of devices) {
     const option = document.createElement("option");
     option.value = device.id;
     option.textContent = device.is_default && device.id ? `${device.name} (system default)` : device.name;
     option.selected = device.is_selected;
-    els.outputDevice.append(option);
+    select.append(option);
+  }
+}
+
+function selectedOptionText(select) {
+  return select.selectedOptions[0]?.textContent?.replace(" (system default)", "") ?? "system default";
+}
+
+function updateRouteStatus() {
+  const mic = selectedOptionText(els.inputDevice);
+  const output = selectedOptionText(els.outputDevice);
+  const enabled = els.orchestratorEnabled.checked;
+
+  if (!enabled) {
+    els.audioRouteStatus.textContent = "Mic mix off. Soundboard goes to the selected Discord input device, but your physical mic is not included.";
+    return;
   }
 
-  const selected = devices.find((device) => device.is_selected);
-  els.audioRouteStatus.textContent = selected?.id
-    ? "Route this device into your stream or call app."
-    : "Uses your system output. Calls may not hear it unless they capture desktop audio.";
+  els.audioRouteStatus.textContent = `Mic mix on. Set Discord input to ${output}; SoulBind sends ${mic} plus soundboard there.`;
 }
 
 function currentMode() {
@@ -254,19 +294,52 @@ els.stopAll.addEventListener("click", async () => {
   await call("stop_all");
 });
 
-els.refreshDevices.addEventListener("click", loadOutputDevices);
+els.refreshDevices.addEventListener("click", loadAudioDevices);
+
+els.inputDevice.addEventListener("change", async (event) => {
+  if (demoMode) {
+    updateRouteStatus();
+    showToast("Mic route changed in preview.");
+    return;
+  }
+
+  const selected = event.target.value || null;
+  const settings = await call("set_input_device", { deviceName: selected });
+  if (settings) {
+    await loadAudioDevices();
+    showToast("Mic route saved.");
+  }
+});
 
 els.outputDevice.addEventListener("change", async (event) => {
   if (demoMode) {
-    showToast("Audio route changed in preview.");
+    updateRouteStatus();
+    showToast("Discord input changed in preview.");
     return;
   }
 
   const selected = event.target.value || null;
   const settings = await call("set_output_device", { deviceName: selected });
   if (settings) {
-    await loadOutputDevices();
-    showToast("Audio route saved.");
+    await loadAudioDevices();
+    showToast("Discord input saved.");
+  }
+});
+
+els.orchestratorEnabled.addEventListener("change", async (event) => {
+  if (demoMode) {
+    updateRouteStatus();
+    showToast(event.target.checked ? "Mic mix enabled in preview." : "Mic mix disabled in preview.");
+    return;
+  }
+
+  const settings = await call("set_orchestrator_enabled", { enabled: event.target.checked });
+  if (settings) {
+    await loadAudioDevices();
+    showToast(event.target.checked ? "Mic mix enabled." : "Mic mix disabled.");
+  } else {
+    event.target.checked = !event.target.checked;
+    updateRouteStatus();
   }
 });
 
@@ -356,4 +429,4 @@ els.shortcut.addEventListener("keydown", (event) => {
 
 resetForm();
 refresh();
-loadOutputDevices();
+loadAudioDevices();

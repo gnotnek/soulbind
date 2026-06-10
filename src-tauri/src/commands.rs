@@ -2,7 +2,7 @@ use tauri::{AppHandle, State};
 use uuid::Uuid;
 
 use crate::error::AppResult;
-use crate::models::{AppSettings, AudioOutputDevice, BindingInput, SoundBinding};
+use crate::models::{AppSettings, AudioInputDevice, AudioOutputDevice, BindingInput, SoundBinding};
 use crate::shortcuts_tauri::rebuild_shortcuts;
 use crate::state::AppState;
 
@@ -95,6 +95,11 @@ pub fn list_output_devices(state: State<'_, AppState>) -> AppResult<Vec<AudioOut
 }
 
 #[tauri::command]
+pub fn list_input_devices(state: State<'_, AppState>) -> AppResult<Vec<AudioInputDevice>> {
+    state.input_devices()
+}
+
+#[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> AppResult<AppSettings> {
     state.settings()
 }
@@ -105,4 +110,20 @@ pub fn set_output_device(
     device_name: Option<String>,
 ) -> AppResult<AppSettings> {
     state.set_output_device(device_name)
+}
+
+#[tauri::command]
+pub fn set_input_device(
+    state: State<'_, AppState>,
+    device_name: Option<String>,
+) -> AppResult<AppSettings> {
+    state.set_input_device(device_name)
+}
+
+#[tauri::command]
+pub fn set_orchestrator_enabled(
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> AppResult<AppSettings> {
+    state.set_orchestrator_enabled(enabled)
 }

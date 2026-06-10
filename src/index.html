@@ -33,20 +33,38 @@
               <input id="search" type="search" placeholder="Search bindings" autocomplete="off" />
             </label>
             <div class="toolbar-actions">
-              <div class="route-control">
-                <label for="output-device">Route</label>
-                <select id="output-device" name="outputDevice"></select>
-                <button class="icon-button subtle" id="refresh-devices" type="button" aria-label="Refresh audio devices" title="Refresh audio devices">
-                  <span class="icon icon-refresh" aria-hidden="true"></span>
-                </button>
-              </div>
               <label class="toggle-control" title="Enable or disable all bindings">
                 <input id="enable-all" type="checkbox" />
                 <span>Enabled</span>
               </label>
             </div>
           </div>
-          <p id="audio-route-status" class="route-status"></p>
+          <section class="orchestrator-panel" aria-label="Call audio mix">
+            <div class="orchestrator-header">
+              <div>
+                <h2>Call Mix</h2>
+                <p>Mix your mic and soundboard into a virtual input.</p>
+              </div>
+              <button class="icon-button subtle" id="refresh-devices" type="button" aria-label="Refresh audio devices" title="Refresh audio devices">
+                <span class="icon icon-refresh" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div class="orchestrator-grid">
+              <label class="device-field">
+                <span>Mic</span>
+                <select id="input-device" name="inputDevice"></select>
+              </label>
+              <label class="device-field">
+                <span>Discord input</span>
+                <select id="output-device" name="outputDevice"></select>
+              </label>
+              <label class="bridge-switch" title="Send mic plus soundboard to the selected Discord input device">
+                <input id="orchestrator-enabled" type="checkbox" />
+                <span>Mix mic</span>
+              </label>
+            </div>
+            <p id="audio-route-status" class="route-status"></p>
+          </section>
           <div id="binding-list" class="binding-list"></div>
         </section>
 

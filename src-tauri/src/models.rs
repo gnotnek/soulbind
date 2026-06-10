@@ -14,10 +14,22 @@ pub struct AppSettings {
 pub struct AudioSettings {
     #[serde(default)]
     pub output_device_name: Option<String>,
+    #[serde(default)]
+    pub input_device_name: Option<String>,
+    #[serde(default)]
+    pub orchestrator_enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AudioOutputDevice {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+    pub is_selected: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AudioInputDevice {
     pub id: String,
     pub name: String,
     pub is_default: bool,

@@ -152,6 +152,8 @@ mod tests {
                 settings: AppSettings {
                     audio: crate::models::AudioSettings {
                         output_device_name: Some("Virtual Cable".to_string()),
+                        input_device_name: Some("Mic".to_string()),
+                        orchestrator_enabled: true,
                     },
                 },
                 bindings: vec![binding("a")],
@@ -165,6 +167,11 @@ mod tests {
             config.settings.audio.output_device_name.as_deref(),
             Some("Virtual Cable")
         );
+        assert_eq!(
+            config.settings.audio.input_device_name.as_deref(),
+            Some("Mic")
+        );
+        assert!(config.settings.audio.orchestrator_enabled);
         assert_eq!(config.bindings.len(), 1);
     }
 
